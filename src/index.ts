@@ -1,7 +1,9 @@
-import joplin from 'api';
+import joplin from "api";
+import { folderNoteLinks } from "./folderNoteLinks";
 
 joplin.plugins.register({
-	onStart: async function() {
-		console.info('Hello world. Test plugin started!');
-	},
+  onStart: async function () {
+    await folderNoteLinks.init();
+    await folderNoteLinks.autoLink();
+  },
 });
