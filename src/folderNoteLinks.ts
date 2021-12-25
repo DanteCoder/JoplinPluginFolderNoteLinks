@@ -29,8 +29,13 @@ export namespace folderNoteLinks {
     const dryFolderTree = createFolderTree(genealogies);
     console.log("dryFolderTree", dryFolderTree);
 
+    // Add all the notes to the folderTree
+    const folderTree = addTreeLeafs(dryFolderTree, notes);
+    console.log("folderTree", folderTree);
+
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
+    //updateNodeNotes(folderTree);
 
     //Link every folder "node" note to his parent "node" note
 
@@ -69,7 +74,6 @@ export namespace folderNoteLinks {
     }
 
     function createBranch(folderTree: any, genealogy: Array<any>) {
-      console.log("createBranch", folderTree, genealogy);
       const parentFolders = Object.keys(folderTree.children);
 
       if (genealogy.length === 0) return;
@@ -84,6 +88,40 @@ export namespace folderNoteLinks {
       }
 
       createBranch(folderTree.children[genealogy[0].id], genealogy.slice(1));
+    }
+
+    return folderTree;
+  }
+
+  function addTreeLeafs(dryFolderTree: any, notes: Array<any>) {
+    // Add all the notes to the dry folder tree and return the
+    // replenished folder tree
+    const folderTree = { ...dryFolderTree };
+    const remainingNotes = [...notes];
+
+    addBranchLeafs(folderTree, remainingNotes);
+
+    function addBranchLeafs(folderTree: any, remainingNotes: Array<any>) {
+      if (remainingNotes.length === 0) return;
+      if (Object.keys(folderTree.children).length === 0) return;
+
+      for (const folder of Object.values(folderTree.children)) {
+        console.log("i'm here");
+
+        for (let i = remainingNotes.length - 1; i >= 0; i--) {
+          const note = remainingNotes[i];
+
+          if (note.parent_id !== folder["id"]) continue;
+
+          // Add the leaf (note)
+          folderTree.children[folder["id"]].notes[note.id] = note;
+
+          // Remove the note from remainingNotes
+          remainingNotes.splice(remainingNotes.indexOf(note), 1);
+        }
+
+        addBranchLeafs(folderTree.children[folder["id"]], remainingNotes);
+      }
     }
 
     return folderTree;
