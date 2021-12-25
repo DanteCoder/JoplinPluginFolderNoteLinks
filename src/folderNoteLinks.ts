@@ -1,6 +1,8 @@
 import joplin from "api";
 
 export namespace folderNoteLinks {
+  const nodeRegex = /^\~\//;
+
   export async function init() {
     console.log("Folder Note Links plugin started!");
 
@@ -24,8 +26,8 @@ export namespace folderNoteLinks {
     console.log("genealogies", genealogies);
 
     //Create the folderTree
-    const folderTree = createFolderTree(genealogies);
-    console.log("folderTree", folderTree);
+    const dryFolderTree = createFolderTree(genealogies);
+    console.log("dryFolderTree", dryFolderTree);
 
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
@@ -59,26 +61,29 @@ export namespace folderNoteLinks {
 
   function createFolderTree(genealogies: any[]) {
     // Create the folder tree from the genealogies of every folder
-    const folderTree = {};
+    const folderTree = { children: {}, id: "" };
 
     for (const genealogy of genealogies) {
-      //Recursively create folder branches from top to bottom
+      //Recursively create folder branches
       createBranch(folderTree, genealogy);
     }
 
     function createBranch(folderTree: any, genealogy: Array<any>) {
-      const parentFolders = Object.keys(folderTree);
+      console.log("createBranch", folderTree, genealogy);
+      const parentFolders = Object.keys(folderTree.children);
 
       if (genealogy.length === 0) return;
 
+      // Create the branch if it doesn't exist
       if (parentFolders.indexOf(genealogy[0].id) === -1) {
-        folderTree[genealogy[0].id] = {
-          folder: genealogy[0],
+        folderTree.children[genealogy[0].id] = {
+          ...genealogy[0],
+          children: {},
           notes: {},
         };
       }
 
-      createBranch(folderTree[genealogy[0].id], genealogy.slice(1));
+      createBranch(folderTree.children[genealogy[0].id], genealogy.slice(1));
     }
 
     return folderTree;
