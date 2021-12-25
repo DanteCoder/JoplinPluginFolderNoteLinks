@@ -21,10 +21,11 @@ export namespace folderNoteLinks {
     for (const folder of folders) {
       genealogies.push(folderGenealogy(folder, folders));
     }
-    genealogies.sort((a, b) => {
-      return a.length - b.length;
-    });
     console.log("genealogies", genealogies);
+
+    //Create the folderTree
+    const folderTree = createFolderTree(genealogies);
+    console.log("folderTree", folderTree);
 
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
@@ -53,7 +54,34 @@ export namespace folderNoteLinks {
       genealogy.push(parent);
     }
 
-    return genealogy;
+    return genealogy.reverse();
+  }
+
+  function createFolderTree(genealogies: any[]) {
+    // Create the folder tree from the genealogies of every folder
+    const folderTree = {};
+
+    for (const genealogy of genealogies) {
+      //Recursively create folder branches from top to bottom
+      createBranch(folderTree, genealogy);
+    }
+
+    function createBranch(folderTree: any, genealogy: Array<any>) {
+      const parentFolders = Object.keys(folderTree);
+
+      if (genealogy.length === 0) return;
+
+      if (parentFolders.indexOf(genealogy[0].id) === -1) {
+        folderTree[genealogy[0].id] = {
+          folder: genealogy[0],
+          notes: {},
+        };
+      }
+
+      createBranch(folderTree[genealogy[0].id], genealogy.slice(1));
+    }
+
+    return folderTree;
   }
 }
 
