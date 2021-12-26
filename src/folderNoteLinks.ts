@@ -38,12 +38,6 @@ export namespace folderNoteLinks {
     await createNodeNotes(folderTree);
 
     //Link every folder "node" note to his parent "node" note
-
-    //Check if the notes are already linked to a "node"
-    //If there was already a link, check if the link is to his parent "node",
-    //if the link is not to his parent, update the link, else, do nothing
-    //If the note has no link to a "node" note, create a link on the bottom of the note
-    //Don't link the "node" note to himself
   }
 
   function folderGenealogy(childFolder: any, folders: Array<any>) {
