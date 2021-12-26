@@ -35,7 +35,7 @@ export namespace folderNoteLinks {
 
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
-    createNodeNotes(folderTree);
+    await createNodeNotes(folderTree);
 
     //Link every folder "node" note to his parent "node" note
 
