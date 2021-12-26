@@ -60,7 +60,7 @@ export namespace folderNoteLinks {
 
   function createFolderTree(genealogies: any[]) {
     // Create the folder tree from the genealogies of every folder
-    const folderTree = { children: {}, id: "" };
+    const folderTree = { children: {}, id: "", nodeNote: "" };
 
     for (const genealogy of genealogies) {
       //Recursively create folder branches
@@ -78,6 +78,7 @@ export namespace folderNoteLinks {
           ...genealogy[0],
           children: {},
           notes: {},
+          nodeNote: "",
         };
       }
 
@@ -100,16 +101,24 @@ export namespace folderNoteLinks {
       if (Object.keys(folderTree.children).length === 0) return;
 
       for (const folder of Object.values(folderTree.children)) {
+        const folderNodeName = "~/" + folder["title"];
+
         for (let i = remainingNotes.length - 1; i >= 0; i--) {
           const note = remainingNotes[i];
 
           if (note.parent_id !== folder["id"]) continue;
 
-          // Add the leaf (note)
-          folderTree.children[folder["id"]].notes[note.id] = note;
-
           // Remove the note from remainingNotes
           remainingNotes.splice(remainingNotes.indexOf(note), 1);
+
+          // If the note is the "node" note, add it to the folder tree as a nodeNote
+          if (note.title === folderNodeName && folder["nodeNote"] === "") {
+            folder["nodeNote"] = note.id;
+            continue;
+          }
+
+          // Add the leaf (note)
+          folderTree.children[folder["id"]].notes[note.id] = note;
         }
 
         addBranchLeafs(folderTree.children[folder["id"]], remainingNotes);
@@ -134,29 +143,27 @@ export namespace folderNoteLinks {
       for (const folder of childrenFolders) {
         const childrenNotes = Object.values(folder["notes"]);
         const folderNodeName = "~/" + folder["title"];
-        let hasNodeNote = false;
 
         for (const note of childrenNotes) {
+          // Continue if the note doesn't start with "~/"
           if (!nodeRegex.test(note["title"])) continue;
 
-          if (note["title"] === folderNodeName && !hasNodeNote) {
-            hasNodeNote = true;
-            continue;
-          }
-
-          // Delete the note if the name doesn't match de folderNodeName
-          // or the note is a duplicate
+          // Delete the note if it isn't the nodeNote
+          if (note["id"] === folder["nodeNote"]) continue;
           joplin.data.delete(["notes", note["id"]]);
         }
 
         await recursiveCheck(folder);
 
-        if (hasNodeNote) continue;
+        // Create a "node" note if it doesn't exist
+        if (folder["nodeNote"] !== "") continue;
 
-        await joplin.data.post(["notes"], null, {
+        const response = await joplin.data.post(["notes"], null, {
           title: folderNodeName,
           parent_id: folder["id"],
         });
+
+        folder["nodeNote"] = response.id;
       }
     }
   }
