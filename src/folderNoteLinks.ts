@@ -1,7 +1,9 @@
 import joplin from "api";
 
 export namespace folderNoteLinks {
-  const nodeRegex = /^\~\//;
+  const nodePrefix = "~/";
+  const nodeRegex = new RegExp(`^${nodePrefix}.*`);
+  console.log("nodeRegex", nodeRegex);
 
   export async function init() {
     console.log("Folder Note Links plugin started!");
@@ -47,7 +49,8 @@ export namespace folderNoteLinks {
 
     while (genealogy[genealogy.length - 1] !== "") {
       const parent = folders.find(
-        (parent) => parent.id === genealogy[genealogy.length - 1].parent_id
+        (parent) =>
+          parent.id === genealogy[genealogy.length - 1].parent_id
       );
 
       if (typeof parent === "undefined") break;
@@ -82,7 +85,10 @@ export namespace folderNoteLinks {
         };
       }
 
-      createBranch(folderTree.children[genealogy[0].id], genealogy.slice(1));
+      createBranch(
+        folderTree.children[genealogy[0].id],
+        genealogy.slice(1)
+      );
     }
 
     return folderTree;
@@ -96,12 +102,15 @@ export namespace folderNoteLinks {
 
     addBranchLeafs(folderTree, remainingNotes);
 
-    function addBranchLeafs(folderTree: any, remainingNotes: Array<any>) {
+    function addBranchLeafs(
+      folderTree: any,
+      remainingNotes: Array<any>
+    ) {
       if (remainingNotes.length === 0) return;
       if (Object.keys(folderTree.children).length === 0) return;
 
       for (const folder of Object.values(folderTree.children)) {
-        const folderNodeName = "~/" + folder["title"];
+        const folderNodeName = nodePrefix + folder["title"];
 
         for (let i = remainingNotes.length - 1; i >= 0; i--) {
           const note = remainingNotes[i];
@@ -111,8 +120,12 @@ export namespace folderNoteLinks {
           // Remove the note from remainingNotes
           remainingNotes.splice(remainingNotes.indexOf(note), 1);
 
-          // If the note is the "node" note, add it to the folder tree as a nodeNote
-          if (note.title === folderNodeName && folder["nodeNote"] === "") {
+          // If the note is the "node" note, add it to the folder
+          // tree as a nodeNote
+          if (
+            note.title === folderNodeName &&
+            folder["nodeNote"] === ""
+          ) {
             folder["nodeNote"] = note.id;
             continue;
           }
@@ -121,7 +134,10 @@ export namespace folderNoteLinks {
           folderTree.children[folder["id"]].notes[note.id] = note;
         }
 
-        addBranchLeafs(folderTree.children[folder["id"]], remainingNotes);
+        addBranchLeafs(
+          folderTree.children[folder["id"]],
+          remainingNotes
+        );
       }
     }
 
@@ -142,10 +158,10 @@ export namespace folderNoteLinks {
 
       for (const folder of childrenFolders) {
         const childrenNotes = Object.values(folder["notes"]);
-        const folderNodeName = "~/" + folder["title"];
+        const folderNodeName = nodePrefix + folder["title"];
 
         for (const note of childrenNotes) {
-          // Continue if the note doesn't start with "~/"
+          // Continue if the note doesn't start with nodePrefix
           if (!nodeRegex.test(note["title"])) continue;
 
           // Delete the note if it isn't the nodeNote
