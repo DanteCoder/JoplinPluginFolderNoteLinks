@@ -35,7 +35,7 @@ export namespace folderNoteLinks {
 
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
-    //updateNodeNotes(folderTree);
+    createNodeNotes(folderTree);
 
     //Link every folder "node" note to his parent "node" note
 
@@ -106,8 +106,6 @@ export namespace folderNoteLinks {
       if (Object.keys(folderTree.children).length === 0) return;
 
       for (const folder of Object.values(folderTree.children)) {
-        console.log("i'm here");
-
         for (let i = remainingNotes.length - 1; i >= 0; i--) {
           const note = remainingNotes[i];
 
@@ -125,6 +123,48 @@ export namespace folderNoteLinks {
     }
 
     return folderTree;
+  }
+
+  async function createNodeNotes(folderTree: any) {
+    // Check in every folder for a "node" note,
+    // and replace or create one according to the case
+
+    await recursiveCheck(folderTree);
+
+    async function recursiveCheck(folderTree: any) {
+      if (Object.keys(folderTree).length === 0) {
+        return;
+      }
+      const childrenFolders = Object.values(folderTree.children);
+
+      for (const folder of childrenFolders) {
+        const childrenNotes = Object.values(folder["notes"]);
+        const folderNodeName = "~/" + folder["title"];
+        let hasNodeNote = false;
+
+        for (const note of childrenNotes) {
+          if (!nodeRegex.test(note["title"])) continue;
+
+          if (note["title"] === folderNodeName && !hasNodeNote) {
+            hasNodeNote = true;
+            continue;
+          }
+
+          // Delete the note if the name doesn't match de folderNodeName
+          // or the note is a duplicate
+          joplin.data.delete(["notes", note["id"]]);
+        }
+
+        await recursiveCheck(folder);
+
+        if (hasNodeNote) continue;
+
+        await joplin.data.post(["notes"], null, {
+          title: folderNodeName,
+          parent_id: folder["id"],
+        });
+      }
+    }
   }
 }
 
