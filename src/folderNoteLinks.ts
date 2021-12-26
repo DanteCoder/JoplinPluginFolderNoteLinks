@@ -3,7 +3,12 @@ import joplin from "api";
 export namespace folderNoteLinks {
   const nodePrefix = "~/";
   const nodeRegex = new RegExp(`^${nodePrefix}.*`);
-  console.log("nodeRegex", nodeRegex);
+
+  // The Regexp only works with folders that doesnt contain "[" or "]" in the title
+  const mdLinkRegexp = new RegExp(
+    `\\[${nodePrefix}.*\\]\\(\\:\\/[a-z0-9]{32}\\)`,
+    "gm"
+  );
 
   export async function init() {
     console.log("Folder Note Links plugin started!");
@@ -39,7 +44,8 @@ export namespace folderNoteLinks {
     //and create one if there is not
     await createNodeNotes(folderTree);
 
-    //Link every folder "node" note to his parent "node" note
+    //Link every note through the "node" notes
+    linkNotes(folderTree);
   }
 
   function folderGenealogy(childFolder: any, folders: Array<any>) {
@@ -63,7 +69,12 @@ export namespace folderNoteLinks {
 
   function createFolderTree(genealogies: any[]) {
     // Create the folder tree from the genealogies of every folder
-    const folderTree = { children: {}, id: "", nodeNote: "" };
+    const folderTree = {
+      children: {},
+      id: "",
+      nodeNote: "",
+      title: "",
+    };
 
     for (const genealogy of genealogies) {
       //Recursively create folder branches
@@ -180,6 +191,118 @@ export namespace folderNoteLinks {
         });
 
         folder["nodeNote"] = response.id;
+      }
+    }
+  }
+
+  async function linkNotes(folderTree: any) {
+    // link "node" notes to his parent node
+    // and link normal notes to his "node" note
+
+    await recursive(folderTree);
+
+    async function recursive(folderTree: any) {
+      for (const folder of Object.values(folderTree.children)) {
+        const parentFolderNodeName = nodePrefix + folderTree["title"];
+        const folderNodeName = nodePrefix + folder["title"];
+
+        //Link "node" notes to his parent node exept in root folders
+        if (parentFolderNodeName !== nodePrefix) {
+          const nodeNoteLink = `[${parentFolderNodeName}](:/${folderTree["nodeNote"]})`;
+          joplin.data.put(["notes", folder["nodeNote"]], null, {
+            body: nodeNoteLink,
+          });
+        } else {
+          joplin.data.put(["notes", folder["nodeNote"]], null, {
+            body: "This is a root node",
+          });
+        }
+
+        for (const note of Object.values(folder["notes"])) {
+          // Check if the note is already linked to a node
+          // ---
+          // Find any markdown link that starts with "nodePrefix"
+          //  if the link doesn't point to the "node" note, update it
+          //  if the link points to the "node" note, don't do anything
+          // Create a new link if it doesn't exists
+          const noteBody: string = (
+            await joplin.data.get(["notes", note["id"]], {
+              fields: ["body"],
+            })
+          ).body;
+
+          // Find all the markdown links in the note
+          const mdLinks = noteBody.match(mdLinkRegexp);
+
+          let newNoteBody = noteBody;
+
+          const nodeNoteLink = `[${folderNodeName}](:/${folder["nodeNote"]})`;
+
+          if (mdLinks === null) {
+            // Create a new link to the "node" note
+            newNoteBody += `\n\n***\n${nodeNoteLink}`;
+            joplin.data.put(["notes", note["id"]], null, {
+              body: newNoteBody,
+            });
+            continue;
+          }
+
+          // Create a list of the mdLinks index
+          const mdLinksPositions = [];
+          let lastIndex = 0;
+          for (const mdLink of mdLinks) {
+            lastIndex = noteBody.indexOf(mdLink, lastIndex);
+            mdLinksPositions.push(lastIndex);
+            lastIndex += mdLink.length;
+          }
+
+          if (mdLinksPositions.length !== mdLinks.length) {
+            throw "The list of mdLinks index was not generated correctly";
+          }
+
+          // Check if the links point to the "node" note
+          let updateNote = false;
+
+          for (let i = mdLinks.length - 1; i >= 0; i--) {
+            const mdLink = mdLinks[i];
+
+            const linkId = mdLink.substring(
+              mdLink.length - 32 - 1,
+              mdLink.length - 1
+            );
+            const linkName = mdLink.substring(
+              1,
+              mdLink.length - 4 - 32 - 1
+            );
+
+            // If the link is correct, do nothing
+            if (
+              linkName === folderNodeName &&
+              linkId === folder["nodeNote"]
+            )
+              continue;
+
+            // if the link is not correct, update it
+            const part1 = newNoteBody.slice(0, mdLinksPositions[i]);
+            let part2 = newNoteBody.slice(mdLinksPositions[i]);
+
+            part2 = part2.replace(mdLink, nodeNoteLink);
+
+            newNoteBody = part1 + part2;
+
+            updateNote = true;
+          }
+
+          if (!updateNote) continue;
+
+          joplin.data.put(["notes", note["id"]], null, {
+            body: newNoteBody,
+          });
+        }
+
+        if (Object.keys(folderTree.children).length === 0) return;
+
+        recursive(folder);
       }
     }
   }
