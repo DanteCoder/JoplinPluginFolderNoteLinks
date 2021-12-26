@@ -19,26 +19,21 @@ export namespace folderNoteLinks {
   export async function autoLink() {
     //Get all the folders
     const folders = (await joplin.data.get(["folders"])).items;
-    console.log("folders", folders);
 
     //Get all the notes
     const notes = (await joplin.data.get(["notes"])).items;
-    console.log("notes", notes);
 
     //Create the genealogy of every folder
     const genealogies = [];
     for (const folder of folders) {
       genealogies.push(folderGenealogy(folder, folders));
     }
-    console.log("genealogies", genealogies);
 
     //Create the folderTree
     const dryFolderTree = createFolderTree(genealogies);
-    console.log("dryFolderTree", dryFolderTree);
 
     // Add all the notes to the folderTree
     const folderTree = addTreeLeafs(dryFolderTree, notes);
-    console.log("folderTree", folderTree);
 
     //Check in all the folders if there is already a "node" note
     //and create one if there is not
