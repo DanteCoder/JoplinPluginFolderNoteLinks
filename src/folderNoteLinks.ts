@@ -18,10 +18,12 @@ export namespace folderNoteLinks {
 
   export async function autoLink() {
     //Get all the folders
-    const folders = (await joplin.data.get(["folders"])).items;
+    const folders = await fetchFolders();
+    console.log("folders", folders);
 
     //Get all the notes
-    const notes = (await joplin.data.get(["notes"])).items;
+    const notes = await fetchNotes();
+    console.log("notes", notes);
 
     //Create the genealogy of every folder
     const genealogies = [];
@@ -41,6 +43,40 @@ export namespace folderNoteLinks {
 
     //Link every note through the "node" notes
     linkNotes(folderTree);
+  }
+
+  async function fetchFolders() {
+    let folders = [];
+    let pageNumber = 1;
+    let hasMore = true;
+
+    do {
+      const response = await joplin.data.get(["folders"], {
+        page: pageNumber,
+      });
+      folders = [...folders, ...response.items];
+      hasMore = response.has_more;
+      pageNumber += 1;
+    } while (hasMore);
+
+    return folders;
+  }
+
+  async function fetchNotes() {
+    let notes = [];
+    let pageNumber = 1;
+    let hasMore = true;
+
+    do {
+      const response = await joplin.data.get(["notes"], {
+        page: pageNumber,
+      });
+      notes = [...notes, ...response.items];
+      hasMore = response.has_more;
+      pageNumber += 1;
+    } while (hasMore);
+
+    return notes;
   }
 
   function folderGenealogy(childFolder: any, folders: Array<any>) {
