@@ -3,12 +3,16 @@ import joplin from "api";
 export namespace folderNoteLinks {
   const nodePrefix = "~/";
   const nodeRegex = new RegExp(`^${nodePrefix}.*`);
-
-  // The Regexp only works with folders that doesnt contain "[" or "]" in the title
   const mdLinkRegexp = new RegExp(
     `\\[${nodePrefix}.*\\]\\(\\:\\/[a-z0-9]{32}\\)`,
     "gm"
   );
+
+  const nodeNoteText =
+    "This note was generated automatically." +
+    "\nAnything you write here will be lost " +
+    'everytime the plugin "Folder Note Links" runs';
+  // The Regexp only works with folders that doesnt contain "[" or "]" in the title
 
   export async function init() {
     console.log("Folder Note Links plugin started!");
@@ -19,11 +23,9 @@ export namespace folderNoteLinks {
   export async function autoLink() {
     //Get all the folders
     const folders = await fetchFolders();
-    console.log("folders", folders);
 
     //Get all the notes
     const notes = await fetchNotes();
-    console.log("notes", notes);
 
     //Create the genealogy of every folder
     const genealogies = [];
@@ -239,11 +241,11 @@ export namespace folderNoteLinks {
         if (parentFolderNodeName !== nodePrefix) {
           const nodeNoteLink = `[${parentFolderNodeName}](:/${folderTree["nodeNote"]})`;
           joplin.data.put(["notes", folder["nodeNote"]], null, {
-            body: nodeNoteLink,
+            body: nodeNoteText + "\n***\n" + nodeNoteLink,
           });
         } else {
-          joplin.data.put(["notes", folder["nodeNote"]], null, {
-            body: "This is a root node",
+          await joplin.data.put(["notes", folder["nodeNote"]], null, {
+            body: nodeNoteText,
           });
         }
 
@@ -269,7 +271,7 @@ export namespace folderNoteLinks {
 
           if (mdLinks === null) {
             // Create a new link to the "node" note
-            newNoteBody += `\n\n***\n${nodeNoteLink}`;
+            newNoteBody += `\n***\n${nodeNoteLink}`;
             joplin.data.put(["notes", note["id"]], null, {
               body: newNoteBody,
             });
