@@ -21,6 +21,18 @@ export namespace folderNoteLinks {
   }
 
   export async function autoLink() {
+    // Get the folder tree
+    const folderTree = await constructFolderTree();
+
+    //Check in all the folders if there is already a "node" note
+    //and create one if there is not
+    await createNodeNotes(folderTree);
+
+    //Link every note through the "node" notes
+    linkNotes(folderTree);
+  }
+
+  async function constructFolderTree() {
     //Get all the folders
     const folders = await fetchFolders();
 
@@ -39,12 +51,7 @@ export namespace folderNoteLinks {
     // Add all the notes to the folderTree
     const folderTree = await addTreeLeafs(dryFolderTree, notes);
 
-    //Check in all the folders if there is already a "node" note
-    //and create one if there is not
-    await createNodeNotes(folderTree);
-
-    //Link every note through the "node" notes
-    linkNotes(folderTree);
+    return folderTree;
   }
 
   async function fetchFolders() {
