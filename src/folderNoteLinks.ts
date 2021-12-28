@@ -32,6 +32,52 @@ export namespace folderNoteLinks {
     linkNotes(folderTree);
   }
 
+  export async function deleteAll() {
+    // Get the folder tree
+    const folderTree = await constructFolderTree();
+
+    // Delete all the node notes
+    deleteNodes(folderTree);
+
+    // Delete all the node links
+    deleteLinks(folderTree);
+
+    async function deleteNodes(folderTree: any) {
+      if (folderTree.nodeNote !== "") {
+        joplin.data.delete(["notes", folderTree.nodeNote]);
+      }
+      for (const folder of Object.values(folderTree.children)) {
+        deleteNodes(folder);
+      }
+    }
+
+    async function deleteLinks(folderTree: any) {
+      for (const folder of Object.values(folderTree.children)) {
+        for (const note of Object.values(folder["notes"])) {
+          // Find all the markdown links in the note
+          const mdLinks = await parseMdLinks(note["id"]);
+          if (mdLinks.mdLinks === null) continue;
+
+          // Delete all the links
+          let newNoteBody = mdLinks.noteBody;
+          for (let i = mdLinks.mdLinks.length - 1; i >= 0; i--) {
+            const mdLink = mdLinks.mdLinks[i];
+
+            newNoteBody =
+              newNoteBody.slice(0, mdLink.index) +
+              newNoteBody.slice(mdLink.index + mdLink.link.length);
+          }
+
+          newNoteBody = newNoteBody.trimEnd().slice(0, -4);
+
+          joplin.data.put(["notes", note["id"]], null, {
+            body: newNoteBody,
+          });
+        }
+      }
+    }
+  }
+
   async function constructFolderTree() {
     //Get all the folders
     const folders = await fetchFolders();
