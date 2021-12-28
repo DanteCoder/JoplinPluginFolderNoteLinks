@@ -263,20 +263,13 @@ export namespace folderNoteLinks {
           //  if the link doesn't point to the "node" note, update it
           //  if the link points to the "node" note, don't do anything
           // Create a new link if it doesn't exists
-          const noteBody: string = (
-            await joplin.data.get(["notes", note["id"]], {
-              fields: ["body"],
-            })
-          ).body;
+          const mdLinks = await parseMdLinks(note["id"]);
 
-          // Find all the markdown links in the note
-          const mdLinks = noteBody.match(mdLinkRegexp);
-
-          let newNoteBody = noteBody;
+          let newNoteBody = mdLinks["noteBody"];
 
           const nodeNoteLink = `[${folderNodeName}](:/${folder["nodeNote"]})`;
 
-          if (mdLinks === null) {
+          if (mdLinks.mdLinks === null) {
             // Create a new link to the "node" note
             newNoteBody += `\n***\n${nodeNoteLink}`;
             joplin.data.put(["notes", note["id"]], null, {
@@ -285,46 +278,24 @@ export namespace folderNoteLinks {
             continue;
           }
 
-          // Create a list of the mdLinks index
-          const mdLinksPositions = [];
-          let lastIndex = 0;
-          for (const mdLink of mdLinks) {
-            lastIndex = noteBody.indexOf(mdLink, lastIndex);
-            mdLinksPositions.push(lastIndex);
-            lastIndex += mdLink.length;
-          }
-
-          if (mdLinksPositions.length !== mdLinks.length) {
-            throw "The list of mdLinks index was not generated correctly";
-          }
-
           // Check if the links point to the "node" note
           let updateNote = false;
 
-          for (let i = mdLinks.length - 1; i >= 0; i--) {
-            const mdLink = mdLinks[i];
-
-            const linkId = mdLink.substring(
-              mdLink.length - 32 - 1,
-              mdLink.length - 1
-            );
-            const linkName = mdLink.substring(
-              1,
-              mdLink.length - 4 - 32 - 1
-            );
+          for (let i = mdLinks.mdLinks.length - 1; i >= 0; i--) {
+            const mdLink = mdLinks.mdLinks[i];
 
             // If the link is correct, do nothing
             if (
-              linkName === folderNodeName &&
-              linkId === folder["nodeNote"]
+              mdLink.name === folderNodeName &&
+              mdLink.id === folder["nodeNote"]
             )
               continue;
 
             // if the link is not correct, update it
-            const part1 = newNoteBody.slice(0, mdLinksPositions[i]);
-            let part2 = newNoteBody.slice(mdLinksPositions[i]);
+            const part1 = newNoteBody.slice(0, mdLink.index);
+            let part2 = newNoteBody.slice(mdLink.index);
 
-            part2 = part2.replace(mdLink, nodeNoteLink);
+            part2 = part2.replace(mdLink.link, nodeNoteLink);
 
             newNoteBody = part1 + part2;
 
@@ -343,6 +314,43 @@ export namespace folderNoteLinks {
         recursive(folder);
       }
     }
+  }
+
+  async function parseMdLinks(noteId: string) {
+    const noteBody: string = (
+      await joplin.data.get(["notes", noteId], {
+        fields: ["body"],
+      })
+    ).body;
+
+    const response = { noteBody: noteBody, mdLinks: null };
+
+    // Find all the markdown links in the note
+    const mdLinks = noteBody.match(mdLinkRegexp);
+
+    if (mdLinks === null) return response;
+
+    response.mdLinks = [];
+
+    // Create a list of the mdLinks index
+    let lastIndex = 0;
+    for (const mdLink of mdLinks) {
+      lastIndex = noteBody.indexOf(mdLink, lastIndex);
+
+      response.mdLinks.push({
+        link: mdLink,
+        id: mdLink.substring(
+          mdLink.length - 32 - 1,
+          mdLink.length - 1
+        ),
+        name: mdLink.substring(1, mdLink.length - 4 - 32 - 1),
+        index: lastIndex,
+      });
+
+      lastIndex += mdLink.length;
+    }
+
+    return response;
   }
 }
 
